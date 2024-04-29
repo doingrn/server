@@ -14,9 +14,9 @@
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^1.7.1",
-    "@types/chrome": "^0.0.267",
     "@types/discord-rpc": "^4.0.8",
     "@types/node": "^20.12.7",
+    "@types/ws": "^8.5.10",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
   },

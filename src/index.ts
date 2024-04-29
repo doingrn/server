@@ -1,48 +1,33 @@
-import { WebSocketServer } from 'ws';
 import { Client as RPCClient } from 'discord-rpc';
-import type { AllReceiveEvents } from './types/events';
+import { WSServer } from './websocket';
 
-const wss = new WebSocketServer({ port: 5454, path: '/doingrn' });
+const ws = new WSServer();
 
-const rpc = new RPCClient({ transport: 'ipc' });
-rpc.login({ clientId: '1230554745484345367' }).catch(console.error);
+export let rpc: RPCClient;
 
-const presenceClients: Record<string, RPCClient> = {};
+async function connect() {
+  try {
+    rpc = new RPCClient({ transport: 'ipc' });
+    console.log('Connecting...');
 
-rpc.once('ready', () => {
-  wss.on('connection', (ws) => {
-    ws.send(
-      JSON.stringify({
-        t: 'init_state',
-        d: { user: rpc.user }
-      })
-    );
-
-    ws.on('message', async (msg) => {
-      const parsedMessage = JSON.parse(msg.toString()) as AllReceiveEvents;
-
-      let client: RPCClient | null = null;
-
-      if (parsedMessage.d.clientId) {
-        client = presenceClients[parsedMessage.d.clientId];
-        if (!client) {
-          client = new RPCClient({ transport: 'ipc' });
-          presenceClients[parsedMessage.d.clientId] = client;
-          await client.login({ clientId: parsedMessage.d.clientId });
-        }
-      }
-
-      switch (parsedMessage.t) {
-        case 'clear_activity':
-          client?.clearActivity();
-          break;
-        case 'update_activity': {
-          client?.setActivity(parsedMessage.d.presence);
-          break;
-        }
-        default:
-          break;
-      }
+    rpc.on('connected', () => {
+      console.log('Connected to Discord RPC');
+      ws.setup();
     });
-  });
-});
+
+    rpc.on('disconnected', () => {
+      console.log('Disconnected from Discord RPC');
+      ws.closeConnections();
+      connect(); // Reconnect on disconnection
+    });
+
+    await rpc.login({ clientId: '1230554745484345367' });
+  } catch (error) {
+    console.error('Error occurred while connecting to Discord RPC:', error);
+    console.log('Retrying in 2 seconds...');
+    setTimeout(connect, 2000);
+  }
+}
+
+console.log('Starting connection process...');
+connect();
