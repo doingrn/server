@@ -18,29 +18,26 @@ rpc.once('ready', () => {
       })
     );
 
-    ws.on('message', (msg) => {
+    ws.on('message', async (msg) => {
       const parsedMessage = JSON.parse(msg.toString()) as AllReceiveEvents;
+
+      let client: RPCClient | null = null;
+
+      if (parsedMessage.d.clientId) {
+        client = presenceClients[parsedMessage.d.clientId];
+        if (!client) {
+          client = new RPCClient({ transport: 'ipc' });
+          presenceClients[parsedMessage.d.clientId] = client;
+          await client.login({ clientId: parsedMessage.d.clientId });
+        }
+      }
 
       switch (parsedMessage.t) {
         case 'clear_activity':
-          rpc.clearActivity();
+          client?.clearActivity();
           break;
         case 'update_activity': {
-          let client = presenceClients[parsedMessage.d.clientId];
-
-          if (client) {
-            client.setActivity(parsedMessage.d.presence);
-            return;
-          }
-
-          client = new RPCClient({ transport: 'ipc' });
-          presenceClients[parsedMessage.d.clientId] = client;
-
-          client.login({ clientId: parsedMessage.d.clientId }).catch(console.error);
-          client.once('ready', () => {
-            client.setActivity(parsedMessage.d.presence);
-          });
-
+          client?.setActivity(parsedMessage.d.presence);
           break;
         }
         default:
